@@ -704,7 +704,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
   function pass(){try{return localStorage.getItem("dexPass")||""}catch(e){return ""}}
   function setPass(v){try{v?localStorage.setItem("dexPass",v):localStorage.removeItem("dexPass")}catch(e){}}
   function rest(table){
-    return fetch(API+"/rest/v1/"+table+"?select=*",{headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Accept-Profile":"dex"}})
+    return fetch(API+"/rest/v1/dex_"+table+"?select=*",{headers:{apikey:KEY,Authorization:"Bearer "+KEY}})
       .then(function(r){if(!r.ok)throw new Error(r.status);return r.json()});
   }
   function write(payload){
