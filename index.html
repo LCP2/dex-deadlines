@@ -126,6 +126,9 @@ form.add{background:var(--surf);border:1px solid var(--line-soft);border-radius:
 .do.done .nm{text-decoration:line-through;color:var(--ink-3)}
 .do.slot .nm{color:var(--ink-3);font-style:italic;font-weight:400}
 .do .dot{width:8px;height:8px;border-radius:50%;margin:0 6px}
+body.locked .tick{opacity:.5}
+body.locked .tick:hover{border-color:var(--accent);opacity:1}
+.do.catchup .nm small{color:var(--late)}
 .do .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
 .rest{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.12em;text-transform:uppercase;opacity:.6}
 .alsoschool{font-size:13px;color:var(--ink-2);padding:14px 0 10px;border-top:1px solid var(--line-soft)}
@@ -518,11 +521,12 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
   function shortD(s){var d=parse(s);return d.getDate()+" "+MON[d.getMonth()];}
   function buildPlan(){
     var src=items.length?items:[];
-    var today=todayISO();
-    /* plan starts today on a weekday; at weekends it starts the coming Monday */
-    if(wd(today)>=5)today=addDays(mondayOf(today),7);
+    var now=todayISO();
+    /* new work is placed from today (or the coming Monday at weekends); the view still shows two weeks back */
+    var today=(wd(now)>=5)?addDays(mondayOf(now),7):now;
+    var histStart=addDays(mondayOf(now),-14);
     var days={},order=[];
-    for(var d=mondayOf(today);d<=PLAN_END;d=addDays(d,1)){days[d]={d:d,cap:d<today?0:CAP[wd(d)],used:0,ses:[]};order.push(d);}
+    for(var d=histStart;d<=PLAN_END;d=addDays(d,1)){days[d]={d:d,cap:d<today?0:CAP[wd(d)],used:0,ses:[]};order.push(d);}
     function put(day,x){days[day].ses.push(x);days[day].used+=x.m;x.day=day;}
     /* 1. homework: earliest day with room, before it's due, no more than a week ahead */
     var hw=src.filter(function(i){return !i.done&&!isIXL(i)&&i.type!=="test"}).map(function(i){return {it:i,kind:kind(i),m:mins(i),due:i.due}});
@@ -559,21 +563,19 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
         else i++;
       }
     });
-    /* 3. group into pages: first page runs from today to the coming Sunday (next Sunday at weekends) */
-    var weeks=[];
-    var firstEnd=addDays(mondayOf(today),6);
-    var ws=mondayOf(today);
-    while(ws<=PLAN_END){
-      var we=(weeks.length===0)?firstEnd:addDays(ws,6);
+    /* 3. group into Mon-Sun pages, two weeks of history included */
+    var weeks=[],curIdx=0;
+    for(var ws=histStart;ws<=PLAN_END;ws=addDays(ws,7)){
+      var we=addDays(ws,6);
       var span=order.filter(function(d){return d>=ws&&d<=we});
-      var show=weeks.length===0?span.filter(function(d){return d>=today}):span;
-      var tests=src.filter(function(i){return !i.done&&i.type==="test"&&i.due>=show[0]&&i.due<=we});
-      var used=0,cap=0;show.forEach(function(d){used+=days[d].used;cap+=days[d].cap;});
-      var wl=weekLabel(addDays(we,-6));
-      weeks.push({mon:show[0],sun:we,lab:wl.lab,hols:wl.hols,days:show.map(function(d){return days[d]}),used:used,cap:cap,tests:tests});
-      ws=addDays(we,1);
+      if(!span.length)continue;
+      var tests=src.filter(function(i){return i.type==="test"&&i.due>=ws&&i.due<=we});
+      var used=0,cap=0;span.forEach(function(d){used+=days[d].used;cap+=days[d].cap;});
+      var wl=weekLabel(ws);
+      if(now>=ws&&now<=we)curIdx=weeks.length;
+      weeks.push({mon:ws,sun:we,lab:wl.lab,hols:wl.hols,past:we<now,days:span.map(function(d){return days[d]}),used:used,cap:cap,tests:tests});
     }
-    return {weeks:weeks,left:queue,dropped:dropped};
+    return {weeks:weeks,curIdx:curIdx,left:queue,dropped:dropped};
   }
   var wkIdx=0, PLAN=null;
   function renderHour(){
@@ -595,7 +597,10 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       var capTxt=day.cap===0?"no study":day.used+" / "+day.cap+" min";
       var head='<div class="dcol"><span class="dn">'+DAY[dd.getDay()]+' '+dd.getDate()+' '+MON[dd.getMonth()]+'</span><span class="cap'+(day.used>day.cap?" over":"")+'">'+capTxt+'</span></div>';
       var dues_html=(due.length?'<div class="dues">'+due.map(function(it){return '<span class="chip'+(it.type==="test"?" t":"")+(it.done?" ok":"")+'">'+(it.type==="test"?"Test · ":"Due · ")+esc((it.subject?it.subject+" — ":"")+it.title.replace(/\s*\(week of\)/,""))+'</span>'}).join("")+'</div>':'');
-      var body=day.ses.map(function(x){
+      var missed=(d<today)?src.filter(function(it){return it.due===d&&!it.done&&!isIXL(it)}):[];
+      var body=missed.map(function(it){
+        return '<div class="do catchup" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="false" aria-label="Mark done"></button><span class="nm">'+esc(it.title)+'<small>Catch-up · was due '+DAY[parse(it.due).getDay()]+' '+shortD(it.due)+'</small></span><span class="mn">'+(it.mins!=null?it.mins:30)+' min</span></div>';
+      }).join("")+day.ses.map(function(x){
         if(x.slot)return '<div class="do slot"><span class="dot k-tutor"></span><span class="nm">'+esc(x.title)+'<small>'+esc(x.note)+' · due '+DAY[parse(x.due).getDay()]+' '+shortD(x.due)+'</small></span><span class="mn">~'+x.m+' min</span></div>';
         var it=x.it,lab={hw:"Homework",tutor:"Tutor",ixl:"IXL"}[x.kind];
         return '<div class="do'+(it.done?" done":"")+'" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="'+(it.done?"true":"false")+'" aria-label="Mark done"></button><span class="nm">'+esc(it.title)+'<small>'+lab+(x.kind==="hw"&&it.subject?" · "+esc(it.subject):"")+(x.kind!=="ixl"?" · due "+DAY[parse(it.due).getDay()]+" "+shortD(it.due):"")+'</small></span><span class="mn">'+x.m+' min</span></div>';
@@ -614,7 +619,8 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
   function renderTerm(){
     var tb=$("#planBody");tb.innerHTML="";
     PLAN.weeks.forEach(function(w,i){
-      var tr=document.createElement("tr");if(w.hols)tr.className="hols";if(i===0)tr.className+=" now";
+      if(w.past)return;
+      var tr=document.createElement("tr");if(w.hols)tr.className="hols";if(i===PLAN.curIdx)tr.className+=" now";
       var dues=w.tests.map(function(t){return '<span class="due"><b>'+esc(t.subject||"")+'</b> '+esc(t.title.replace(/\s*\(week of\)/,""))+'</span>'}).join("");
       var all=[];w.days.forEach(function(d){all=all.concat(d.ses)});
       var hwDue=all.filter(function(x){return x.it&&x.kind!=="ixl"}).map(function(x){return '<span class="due">'+esc(x.it.subject||"")+' — '+esc(x.it.title)+'</span>'}).join("");
@@ -629,10 +635,11 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     if(PLAN.dropped.length){mn.hidden=false;mn.innerHTML="<b>Didn't fit before its assessment:</b> "+PLAN.dropped.map(function(i){return esc(i.title)}).join(" · ");}
     else mn.hidden=true;
   }
-  function renderPlan(){PLAN=buildPlan();renderHour();renderTerm();}
+  var wkInit=false;
+  function renderPlan(){PLAN=buildPlan();if(!wkInit){wkIdx=PLAN.curIdx;wkInit=true;}renderHour();renderTerm();}
   $("#wkPrev").addEventListener("click",function(){wkIdx--;renderHour();});
   $("#wkNext").addEventListener("click",function(){wkIdx++;renderHour();});
-  $("#wkNow").addEventListener("click",function(){wkIdx=0;renderHour();});
+  $("#wkNow").addEventListener("click",function(){wkIdx=PLAN.curIdx;renderHour();});
 
   /* ---------- subjects ---------- */
   function renderSubjects(){
@@ -675,25 +682,37 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       note("");
     }).catch(function(e){note("Couldn't reach the tracker ("+e.message+"). Showing the last data loaded.")});
   }
+  function ensureUnlocked(){
+    if(pass())return true;
+    var v=window.prompt("Family passcode to tick things off");
+    if(v&&v.trim()){setPass(v.trim());paintLock();return true;}
+    note("Locked — nothing was saved. Tap \u201cUnlock to edit\u201d and enter the family passcode.");
+    return false;
+  }
   save=function(it){
-    if(!pass()){note("Unlock first to change anything.");return Promise.resolve();}
+    if(!ensureUnlocked())return Promise.resolve();
     var i=items.findIndex(function(x){return x.id===it.id});
     if(i>=0)items[i]=it;
     render();renderPlan();
     return write({op:"toggle",id:it.id,done:!!it.done}).then(load).catch(function(e){note("Didn't save: "+e.message);load();});
   };
   remove=function(id){
-    if(!pass()){note("Unlock first to change anything.");return Promise.resolve();}
+    if(!ensureUnlocked())return Promise.resolve();
     return write({op:"remove",id:id}).then(load).catch(function(e){note("Didn't delete: "+e.message)});
   };
   addItem=function(it){
-    if(!pass()){note("Unlock first to add anything.");return Promise.resolve();}
+    if(!ensureUnlocked())return Promise.resolve();
     return write({op:"add",title:it.title,subject:it.subject,type:it.type,due:it.due}).then(load).catch(function(e){note("Didn't add: "+e.message)});
   };
 
   /* ---------- lock ---------- */
   var lockBtn=$("#lockBtn");
-  function paintLock(){lockBtn.textContent=pass()?"Locked ✓ editing on":"Unlock to edit";lockBtn.classList.toggle("primary",!pass());}
+  function paintLock(){
+    var on=!!pass();
+    lockBtn.textContent=on?"Editing on":"Unlock to edit";
+    lockBtn.classList.toggle("primary",!on);
+    document.body.classList.toggle("locked",!on);
+  }
   lockBtn.addEventListener("click",function(){
     if(pass()){setPass("");note("Editing locked.");}
     else{var v=window.prompt("Family passcode");if(v)setPass(v.trim());}
