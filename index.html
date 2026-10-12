@@ -18,6 +18,7 @@
   --late:#ff5f5f; --late-soft:#2d1618;
   --soon:#ffc24d; --soon-soft:#2c2213;
   --done:#4fc98d; --done-soft:#12281f;
+  --tickbg:#2c3744; --tickbd:#7f90a5;
   --r:14px; --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -28px #000;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --body:"Hanken Grotesk",system-ui,-apple-system,Segoe UI,sans-serif;
@@ -31,6 +32,7 @@
     --accent:#e2521d; --accent-soft:#fdeae1; --accent-ink:#c7420f;
     --late:#c33; --late-soft:#fae3e3; --soon:#9a6a12; --soon-soft:#f8efd9;
     --done:#2f8c62; --done-soft:#e1f2e9;
+    --tickbg:#ffffff; --tickbd:#95a4b8;
     --shadow:0 1px 2px rgba(16,23,34,.05), 0 18px 40px -32px rgba(16,23,34,.5);
   }
 }
@@ -41,6 +43,7 @@
   --accent:#e2521d; --accent-soft:#fdeae1; --accent-ink:#c7420f;
   --late:#c33; --late-soft:#fae3e3; --soon:#9a6a12; --soon-soft:#f8efd9;
   --done:#2f8c62; --done-soft:#e1f2e9;
+  --tickbg:#ffffff; --tickbd:#95a4b8;
   --shadow:0 1px 2px rgba(16,23,34,.05), 0 18px 40px -32px rgba(16,23,34,.5);
 }
 *{box-sizing:border-box}
@@ -126,17 +129,21 @@ form.add{background:var(--surf);border:1px solid var(--line-soft);border-radius:
 .do.done .nm{text-decoration:line-through;color:var(--ink-3)}
 .do.slot .nm{color:var(--ink-3);font-style:italic;font-weight:400}
 .do .dot{width:8px;height:8px;border-radius:50%;margin:0 6px}
-body.locked .tick{opacity:.5}
-body.locked .tick:hover{border-color:var(--accent);opacity:1}
 .do.catchup .nm small{color:var(--late)}
 .do .mn{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
 .rest{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.12em;text-transform:uppercase;opacity:.6}
 .alsoschool{font-size:13px;color:var(--ink-2);padding:14px 0 10px;border-top:1px solid var(--line-soft)}
 .alsoschool b{color:var(--accent-ink);font-weight:600;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;display:block;margin-bottom:4px}
-.tick{appearance:none;width:20px;height:20px;border:1.5px solid var(--line);border-radius:7px;background:var(--sunk);cursor:pointer;display:grid;place-items:center;flex:none;transition:background .15s,border-color .15s}
-.tick:hover{border-color:var(--accent)}
+.tick{appearance:none;width:24px;height:24px;border:2px solid var(--tickbd);border-radius:8px;background:var(--tickbg);cursor:pointer;display:grid;place-items:center;flex:none;transition:background .15s,border-color .15s,box-shadow .15s}
+.tick:hover{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent)}
 .tick[aria-pressed="true"]{background:var(--done);border-color:var(--done)}
-.tick[aria-pressed="true"]::after{content:"";width:5px;height:9px;border:solid #06130d;border-width:0 2px 2px 0;transform:rotate(42deg) translate(-1px,-1px)}
+.tick[aria-pressed="true"]::after{content:"";width:6px;height:11px;border:solid #06130d;border-width:0 2.5px 2.5px 0;transform:rotate(42deg) translate(-1px,-1px)}
+.group.ok > h2{color:var(--done)}
+.do.rolled .nm small{color:var(--late)}
+.do.fin .mn{color:var(--done)}
+.wkstat{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+.wkstat .t{color:var(--done)}
+.wkstat .u{color:var(--late)}
 
 /* deadline list */
 .group{margin-top:26px}
@@ -358,9 +365,10 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     var src=items.length?items.filter(function(i){return !isIXL(i)}):DEMO;
     return src.slice().sort(function(a,b){return a.due<b.due?-1:a.due>b.due?1:0;});
   }
+  function recentDone(it){var d=it.done_on||it.due;return d>=addDays(todayISO(),-7);}
   function pass(it){
     if(filter==="done")return !!it.done;
-    if(it.done)return false;
+    if(it.done)return recentDone(it);
     if(filter==="test")return it.type==="test";
     if(filter==="hw")return it.type!=="test";
     return true;
@@ -406,11 +414,13 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       host.appendChild(groupEl("Done",rows,""));return;
     }
     var order=["overdue","week","fort","later"],seen={};
-    rows.forEach(function(it){var b=bucket(it);(seen[b.k]=seen[b.k]||{label:b.label,cls:b.cls||"",list:[]}).list.push(it)});
+    rows.filter(function(i){return !i.done}).forEach(function(it){var b=bucket(it);(seen[b.k]=seen[b.k]||{label:b.label,cls:b.cls||"",list:[]}).list.push(it)});
     order.forEach(function(k){
       if(!seen[k])return;
       host.appendChild(groupEl(seen[k].label,seen[k].list,seen[k].cls));
     });
+    var tk=rows.filter(function(i){return i.done}).sort(function(a,b){var x=a.done_on||a.due,y=b.done_on||b.due;return x<y?1:-1});
+    if(tk.length)host.appendChild(groupEl("Ticked off in the last week",tk,"ok"));
   }
 
   function groupEl(label,list,cls){
@@ -524,10 +534,11 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     var now=todayISO();
     /* new work is placed from today (or the coming Monday at weekends); the view still shows two weeks back */
     var today=(wd(now)>=5)?addDays(mondayOf(now),7):now;
-    var histStart=addDays(mondayOf(now),-14);
+    var histStart=addDays(mondayOf(now),-28);
     var days={},order=[];
-    for(var d=histStart;d<=PLAN_END;d=addDays(d,1)){days[d]={d:d,cap:d<today?0:CAP[wd(d)],used:0,ses:[]};order.push(d);}
-    function put(day,x){days[day].ses.push(x);days[day].used+=x.m;x.day=day;}
+    for(var d=histStart;d<=PLAN_END;d=addDays(d,1)){days[d]={d:d,cap:CAP[wd(d)],open:d>=today,used:0,ses:[]};order.push(d);}
+    var fwd={};
+    function put(day,x){days[day].ses.push(x);days[day].used+=x.m;x.day=day;if(x.it&&!x.fin&&!x.roll)fwd[x.it.id]=day;}
     /* 1. homework: earliest day with room, before it's due, no more than a week ahead */
     var hw=src.filter(function(i){return !i.done&&!isIXL(i)&&i.type!=="test"}).map(function(i){return {it:i,kind:kind(i),m:mins(i),due:i.due}});
     /* tutor placeholder: each Thursday from next week on, unless real tutor work already due the following Wed */
@@ -541,9 +552,9 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     var overflow=[];
     hw.forEach(function(x){
       var lo=x.from||addDays(x.due,-7); if(lo<today)lo=today;
-      var cands=order.filter(function(d){return d>=lo&&d<x.due&&days[d].cap>0});
-      if(!cands.length)cands=order.filter(function(d){return d>=today&&d<=x.due&&days[d].cap>0});
-      if(!cands.length){var f=order.filter(function(d){return d>=today&&days[d].cap>0})[0];if(f)cands=[f];}
+      var cands=order.filter(function(d){return d>=lo&&d<x.due&&days[d].open&&days[d].cap>0});
+      if(!cands.length)cands=order.filter(function(d){return d>=today&&d<=x.due&&days[d].open&&days[d].cap>0});
+      if(!cands.length){var f=order.filter(function(d){return d>=today&&days[d].open&&days[d].cap>0})[0];if(f)cands=[f];}
       if(!cands.length)return;
       var pick=null;
       for(var i=0;i<cands.length;i++){if(days[cands[i]].cap-days[cands[i]].used>=x.m){pick=cands[i];break;}}
@@ -554,7 +565,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     var queue=src.filter(function(i){return isIXL(i)&&!i.done}).sort(function(a,b){var pa=a.prio||9,pb=b.prio||9;return pa!==pb?pa-pb:(a.due<b.due?-1:(a.due>b.due?1:(a.ord||0)-(b.ord||0)))});
     var dropped=[];
     order.forEach(function(d){
-      var day=days[d];if(day.cap<=0)return;
+      var day=days[d];if(!day.open||day.cap<=0)return;
       queue=queue.filter(function(q){if(q.until&&q.until<d){dropped.push(q);return false;}return true;});
       var i=0;
       while(i<queue.length&&day.cap-day.used>0){
@@ -563,7 +574,31 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
         else i++;
       }
     });
-    /* 3. group into Mon-Sun pages, two weeks of history included */
+    /* 2b. anything already ticked stays visible on the day it was ticked */
+    src.filter(function(i){return i.done&&i.type!=="test"}).forEach(function(i){
+      var dd=i.done_on||i.due;
+      if(!days[dd])return;
+      put(dd,{it:i,kind:kind(i),m:mins(i),fin:true});
+    });
+    /* 3. past days: still-unticked work shows there, and also rolls forward into the live plan above */
+    var back=src.filter(function(i){return !i.done&&i.type!=="test"}).map(function(i){i.placed=false;return i}).sort(function(a,b){
+      var pa=isIXL(a)?(a.prio||9):0,pb=isIXL(b)?(b.prio||9):0;
+      return pa!==pb?pa-pb:(a.due<b.due?-1:(a.due>b.due?1:(a.ord||0)-(b.ord||0)));
+    });
+    order.filter(function(d){return d<today&&days[d].cap>0}).reverse().forEach(function(d){
+      var day=days[d];
+      var lim=addDays(d,6);
+      for(var k=0;k<back.length&&day.cap-day.used>=10;k++){
+        var q=back[k];
+        if(q.placed||q.due>lim||mins(q)>day.cap-day.used)continue;
+        if(fwd[q.id]&&mondayOf(fwd[q.id])===mondayOf(d)){day.moved=true;continue;}
+        q.placed=true;put(d,{it:q,kind:kind(q),m:mins(q),roll:true});
+      }
+    });
+    order.forEach(function(d){days[d].ses.sort(function(a,b){
+      var rk=function(x){return x.fin?0:(x.roll?1:2)};return rk(a)-rk(b);
+    })});
+    /* 4. group into Mon-Sun pages, four weeks of history included */
     var weeks=[],curIdx=0;
     for(var ws=histStart;ws<=PLAN_END;ws=addDays(ws,7)){
       var we=addDays(ws,6);
@@ -572,8 +607,10 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       var tests=src.filter(function(i){return i.type==="test"&&i.due>=ws&&i.due<=we});
       var used=0,cap=0;span.forEach(function(d){used+=days[d].used;cap+=days[d].cap;});
       var wl=weekLabel(ws);
-      if(now>=ws&&now<=we)curIdx=weeks.length;
-      weeks.push({mon:ws,sun:we,lab:wl.lab,hols:wl.hols,past:we<now,days:span.map(function(d){return days[d]}),used:used,cap:cap,tests:tests});
+      if(today>=ws&&today<=we)curIdx=weeks.length;
+      var fin=0,roll=0,plan=0;
+      span.forEach(function(d){days[d].ses.forEach(function(x){if(x.fin)fin++;else if(x.roll)roll++;else plan++;})});
+      weeks.push({mon:ws,sun:we,lab:wl.lab,hols:wl.hols,past:we<now,days:span.map(function(d){return days[d]}),used:used,cap:cap,tests:tests,fin:fin,roll:roll,plan:plan});
     }
     return {weeks:weeks,curIdx:curIdx,left:queue,dropped:dropped};
   }
@@ -586,7 +623,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     var m=$("#meter");m.innerHTML="";
     w.days.forEach(function(day){day.ses.forEach(function(x){var sp=document.createElement("span");sp.className="k-"+(x.slot?"slot":x.kind);sp.style.flex=String(x.m);sp.title=(x.it?x.it.title:x.title)+" · "+x.m+" min";m.appendChild(sp);});});
     if(w.used<w.cap){var gap=document.createElement("span");gap.style.flex=String(w.cap-w.used);gap.style.background="transparent";m.appendChild(gap);}
-    $("#meterUsed").innerHTML=w.used+" min planned";
+    $("#meterUsed").innerHTML='<span class="wkstat">'+(w.fin?'<span class="t">'+w.fin+' ticked</span> · ':"")+(w.roll?'<span class="u">'+w.roll+' not ticked</span> · ':"")+(w.plan?w.plan+" planned · ":"")+w.used+" min</span>";
     $("#meterCap").textContent=w.cap+" min available";
     var ul=$("#sess");ul.innerHTML="";
     var src=items.length?items:[];
@@ -595,17 +632,17 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       var due=src.filter(function(it){return it.due===d&&!isIXL(it)});
       var li=document.createElement("li");li.className="day"+(d===today?" is-today":"")+(day.cap===0?" quiet":"");
       var capTxt=day.cap===0?"no study":day.used+" / "+day.cap+" min";
+      var noneTxt=day.moved?"Rolled forward to later this week":((d<today)?"Nothing recorded":"Nothing planned");
       var head='<div class="dcol"><span class="dn">'+DAY[dd.getDay()]+' '+dd.getDate()+' '+MON[dd.getMonth()]+'</span><span class="cap'+(day.used>day.cap?" over":"")+'">'+capTxt+'</span></div>';
       var dues_html=(due.length?'<div class="dues">'+due.map(function(it){return '<span class="chip'+(it.type==="test"?" t":"")+(it.done?" ok":"")+'">'+(it.type==="test"?"Test · ":"Due · ")+esc((it.subject?it.subject+" — ":"")+it.title.replace(/\s*\(week of\)/,""))+'</span>'}).join("")+'</div>':'');
-      var missed=(d<today)?src.filter(function(it){return it.due===d&&!it.done&&!isIXL(it)}):[];
-      var body=missed.map(function(it){
-        return '<div class="do catchup" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="false" aria-label="Mark done"></button><span class="nm">'+esc(it.title)+'<small>Catch-up · was due '+DAY[parse(it.due).getDay()]+' '+shortD(it.due)+'</small></span><span class="mn">'+(it.mins!=null?it.mins:30)+' min</span></div>';
-      }).join("")+day.ses.map(function(x){
+      var body=day.ses.map(function(x){
         if(x.slot)return '<div class="do slot"><span class="dot k-tutor"></span><span class="nm">'+esc(x.title)+'<small>'+esc(x.note)+' · due '+DAY[parse(x.due).getDay()]+' '+shortD(x.due)+'</small></span><span class="mn">~'+x.m+' min</span></div>';
         var it=x.it,lab={hw:"Homework",tutor:"Tutor",ixl:"IXL"}[x.kind];
-        return '<div class="do'+(it.done?" done":"")+'" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="'+(it.done?"true":"false")+'" aria-label="Mark done"></button><span class="nm">'+esc(it.title)+'<small>'+lab+(x.kind==="hw"&&it.subject?" · "+esc(it.subject):"")+(x.kind!=="ixl"?" · due "+DAY[parse(it.due).getDay()]+" "+shortD(it.due):"")+'</small></span><span class="mn">'+x.m+' min</span></div>';
+        var cls="do"+(it.done?" done fin":"")+(x.roll?" rolled catchup":"");
+        var sb=x.roll?"Not ticked · rolled forward":(lab+(x.kind==="hw"&&it.subject?" · "+esc(it.subject):"")+(x.kind!=="ixl"?" · due "+DAY[parse(it.due).getDay()]+" "+shortD(it.due):""));
+        return '<div class="'+cls+'" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="'+(it.done?"true":"false")+'" aria-label="Mark done"></button><span class="nm">'+esc(it.title)+'<small>'+sb+'</small></span><span class="mn">'+x.m+' min</span></div>';
       }).join("");
-      li.innerHTML=head+'<div class="dbody">'+dues_html+(body||(day.cap>0?'<div class="rest">Nothing planned</div>':''))+'</div>';
+      li.innerHTML=head+'<div class="dbody">'+dues_html+(body||(day.cap>0?'<div class="rest">'+noneTxt+'</div>':''))+'</div>';
       ul.appendChild(li);
     });
     Array.prototype.forEach.call(ul.querySelectorAll(".do[data-id] .tick"),function(b){
@@ -695,6 +732,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
   }
   save=function(it){
     if(!ensureUnlocked())return Promise.resolve();
+    it.done_on=it.done?todayISO():null;
     var i=items.findIndex(function(x){return x.id===it.id});
     if(i>=0)items[i]=it;
     render();renderPlan();
