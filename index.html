@@ -314,7 +314,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
   "use strict";
   var $=function(s){return document.querySelector(s)};
   var items=[], results=[], subjects=[], filter="open";
-  var save=function(){}, remove=function(){}, addItem=function(){};
+  var save=function(){}, addItem=function(){};
 
   /* ---------- theme ---------- */
   var tb=$("#themeBtn");
@@ -365,7 +365,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     var src=items.length?items.filter(function(i){return !isIXL(i)}):DEMO;
     return src.slice().sort(function(a,b){return a.due<b.due?-1:a.due>b.due?1:0;});
   }
-  function recentDone(it){var d=it.done_on||it.due;return d>=addDays(todayISO(),-7);}
+  function recentDone(it){var d=it.done_on;return !!d&&d>=addDays(todayISO(),-7);}
   function pass(it){
     if(filter==="done")return !!it.done;
     if(it.done)return recentDone(it);
@@ -444,16 +444,11 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
         (it.type==="test"?'<span class="tag test">Test</span>':'')+
         (it.demo?'<span class="tag ex">Example</span>':'')+
         '<span>'+(it.done?"done":countWord(n))+'</span>'+
-      '</div></div>'+
-      '<div class="acts"><button class="icon" type="button" data-a="del">Remove</button></div>';
+      '</div></div>';
     r.querySelector(".tick").addEventListener("click",function(){
       if(it.demo){seedDemo(it);return;}
       var c=Object.assign({},it);c.done=!it.done;save(c);
       if(!db){}
-    });
-    r.querySelector('[data-a="del"]').addEventListener("click",function(){
-      if(it.demo){DEMO=DEMO.filter(function(x){return x.id!==it.id});render();return;}
-      remove(it.id);
     });
     return r;
   }
@@ -576,8 +571,8 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     });
     /* 2b. anything already ticked stays visible on the day it was ticked */
     src.filter(function(i){return i.done&&i.type!=="test"}).forEach(function(i){
-      var dd=i.done_on||i.due;
-      if(!days[dd])return;
+      var dd=i.done_on;
+      if(!dd||!days[dd])return;
       put(dd,{it:i,kind:kind(i),m:mins(i),fin:true});
     });
     /* 3. past days: still-unticked work shows there, and also rolls forward into the live plan above */
@@ -737,10 +732,6 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     if(i>=0)items[i]=it;
     render();renderPlan();
     return write({op:"toggle",id:it.id,done:!!it.done}).then(load).catch(function(e){note("Didn't save: "+e.message);load();});
-  };
-  remove=function(id){
-    if(!ensureUnlocked())return Promise.resolve();
-    return write({op:"remove",id:id}).then(load).catch(function(e){note("Didn't delete: "+e.message)});
   };
   addItem=function(it){
     if(!ensureUnlocked())return Promise.resolve();
