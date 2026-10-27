@@ -549,7 +549,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       var lo=x.from||addDays(x.due,-7); if(lo<today)lo=today;
       var cands=order.filter(function(d){return d>=lo&&d<x.due&&days[d].open&&days[d].cap>0});
       if(!cands.length)cands=order.filter(function(d){return d>=today&&d<=x.due&&days[d].open&&days[d].cap>0});
-      if(!cands.length){var f=order.filter(function(d){return d>=today&&days[d].open&&days[d].cap>0})[0];if(f)cands=[f];}
+      if(!cands.length)cands=order.filter(function(d){return d>=today&&days[d].open&&days[d].cap>0}).slice(0,10);
       if(!cands.length)return;
       var pick=null;
       for(var i=0;i<cands.length;i++){if(days[cands[i]].cap-days[cands[i]].used>=x.m){pick=cands[i];break;}}
