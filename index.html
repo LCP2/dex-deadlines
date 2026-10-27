@@ -178,6 +178,16 @@ form.add{background:var(--surf);border:1px solid var(--line-soft);border-radius:
 .subj{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
 .sj{background:var(--surf);border:1px solid var(--line-soft);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
 .sj h3{font-size:15px;font-weight:700}
+.sj .ak{color:var(--late);font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;line-height:1.45}
+.aw{margin-top:22px}
+.aw-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line-soft);padding-bottom:7px;margin-bottom:12px}
+.aw-h b{color:var(--ink);font-size:13px;letter-spacing:.08em}
+.aw-now .aw-h b{color:var(--accent-ink)}
+.aw-now .aw-h::after{content:"This week";color:var(--accent-ink)}
+.aw-none{font-size:13px;color:var(--ink-3);line-height:1.6}
+.lnk{color:inherit;text-decoration:none;border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, transparent)}
+.lnk:hover{color:var(--accent-ink);border-bottom-color:var(--accent)}
+.ext{font-size:.85em;margin-left:4px;color:var(--accent-ink);border:0}
 .sj .tp{font-size:13px;color:var(--ink-2);line-height:1.4}
 .sj .nx2{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:auto;padding-top:10px;letter-spacing:.1em;text-transform:uppercase}
 .sj .nx2 b{color:var(--accent-ink);font-weight:600}
@@ -290,10 +300,10 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
   </div>
 
   <div class="view" id="v-term" hidden>
-    <h2 class="sec-h">Subjects &amp; topics</h2>
-    <p class="lede2">Now, and what's next</p>
+    <h2 class="sec-h">Assessments, week by week</h2>
+    <p class="lede2">Every Term 4 test, exam, hand-in and project, by school week</p>
     <div class="subj" id="subj"></div>
-    <h2 class="sec-h">Week by week</h2>
+    <h2 class="sec-h">Study time, week by week</h2>
     <p class="lede2">Mon · Thu · Sat · Sun 1 hr — Tue 30 min IXL skills are done at a SmartScore of 60+.</p>
     <div class="tbl-wrap"><table class="plan"><thead><tr><th>Week</th><th>Dates</th><th>At school</th><th>Study time</th><th>Min</th></tr></thead><tbody id="planBody"></tbody></table></div>
     <div class="flag" id="noFit" hidden style="background:var(--late-soft);color:var(--late)"></div>
@@ -439,7 +449,7 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
     r.innerHTML=
       '<button class="tick" type="button" aria-pressed="'+(it.done?"true":"false")+'" aria-label="Mark done"></button>'+
       '<div class="date">'+DAY[d.getDay()]+'<b>'+d.getDate()+" "+MON[d.getMonth()]+'</b></div>'+
-      '<div class="main"><div class="t">'+esc(it.title)+'</div><div class="m">'+
+      '<div class="main"><div class="t">'+linkHtml(it.link,esc(it.title))+'</div><div class="m">'+
         (it.subject?'<span class="tag">'+esc(it.subject)+'</span>':'')+
         (it.type==="test"?'<span class="tag test">Test</span>':'')+
         (it.demo?'<span class="tag ex">Example</span>':'')+
@@ -629,13 +639,13 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
       var capTxt=day.cap===0?"no study":day.used+" / "+day.cap+" min";
       var noneTxt=day.moved?"Rolled forward to later this week":((d<today)?"Nothing recorded":"Nothing planned");
       var head='<div class="dcol"><span class="dn">'+DAY[dd.getDay()]+' '+dd.getDate()+' '+MON[dd.getMonth()]+'</span><span class="cap'+(day.used>day.cap?" over":"")+'">'+capTxt+'</span></div>';
-      var dues_html=(due.length?'<div class="dues">'+due.map(function(it){return '<span class="chip'+(it.type==="test"?" t":"")+(it.done?" ok":"")+'">'+(it.type==="test"?"Test · ":"Due · ")+esc((it.subject?it.subject+" — ":"")+it.title.replace(/\s*\(week of\)/,""))+'</span>'}).join("")+'</div>':'');
+      var dues_html=(due.length?'<div class="dues">'+due.map(function(it){return '<span class="chip'+(it.type==="test"?" t":"")+(it.done?" ok":"")+'">'+linkHtml(it.link,(it.type==="test"?"Test · ":"Due · ")+esc((it.subject?subjName(it.subject)+" — ":"")+it.title.replace(/\s*\(week of\)/,"")))+'</span>'}).join("")+'</div>':'');
       var body=day.ses.map(function(x){
         if(x.slot)return '<div class="do slot"><span class="dot k-tutor"></span><span class="nm">'+esc(x.title)+'<small>'+esc(x.note)+' · due '+DAY[parse(x.due).getDay()]+' '+shortD(x.due)+'</small></span><span class="mn">~'+x.m+' min</span></div>';
         var it=x.it,lab={hw:"Homework",tutor:"Tutor",ixl:"IXL"}[x.kind];
         var cls="do"+(it.done?" done fin":"")+(x.roll?" rolled catchup":"");
         var sb=x.roll?"Not ticked · rolled forward":(lab+(x.kind==="hw"&&it.subject?" · "+esc(it.subject):"")+(x.kind!=="ixl"?" · due "+DAY[parse(it.due).getDay()]+" "+shortD(it.due):""));
-        return '<div class="'+cls+'" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="'+(it.done?"true":"false")+'" aria-label="Mark done"></button><span class="nm">'+esc(it.title)+'<small>'+sb+'</small></span><span class="mn">'+x.m+' min</span></div>';
+        return '<div class="'+cls+'" data-id="'+esc(it.id)+'"><button class="tick" type="button" aria-pressed="'+(it.done?"true":"false")+'" aria-label="Mark done"></button><span class="nm">'+linkHtml(it.link,esc(it.title))+'<small>'+sb+'</small></span><span class="mn">'+x.m+' min</span></div>';
       }).join("");
       li.innerHTML=head+'<div class="dbody">'+dues_html+(body||(day.cap>0?'<div class="rest">'+noneTxt+'</div>':''))+'</div>';
       ul.appendChild(li);
@@ -674,16 +684,57 @@ table.plan{border-collapse:collapse;width:100%;min-width:660px;font-size:13px}
   $("#wkNow").addEventListener("click",function(){wkIdx=PLAN.curIdx;renderHour();});
 
   /* ---------- subjects ---------- */
+  function linkHtml(url,inner){
+    if(!url||!/^https:\/\//.test(url))return inner;
+    return '<a class="lnk" href="'+esc(url)+'" target="_blank" rel="noopener">'+inner+'<span class="ext" aria-hidden="true">\u2197</span></a>';
+  }
+  function subjName(s){s=s||"";
+    if(/^7TEC|techn/i.test(s))return "Technology"; if(/^7ENG|english/i.test(s))return "English";
+    if(/^7MTH|math/i.test(s))return "Maths"; if(/^7SCI|scien/i.test(s))return "Science";
+    if(/^7HIS|histor/i.test(s))return "History"; if(/visual|^7ART/i.test(s))return "Visual Arts";
+    if(/^7MUS|music/i.test(s))return "Music"; if(/PDH/i.test(s))return "PDHPE"; return s;}
+  function aKind(t){t=t||"";
+    if(/exam/i.test(t))return "Exam"; if(/challenge/i.test(t))return "Optional task";
+    if(/speech|transcript/i.test(t))return "Speech + transcript"; if(/\btest\b/i.test(t))return "Test";
+    if(/website|folio|practical|project/i.test(t))return "Project"; if(/hand-in|artmaking/i.test(t))return "Hand-in";
+    if(/assessment task|notification/i.test(t))return "Assessment task"; return "Task";}
+  function longD(s){var d=parse(s);return DAY[d.getDay()]+" "+d.getDate()+" "+MON[d.getMonth()];}
+  function isAssess(i){return !isIXL(i)&&(i.type==="test"||/website|folio|practical/i.test(i.title||""));}
   function renderSubjects(){
-    var h=$("#subj");h.innerHTML="";
-    if(!subjects.length){h.innerHTML='<p class="empty-note">No subjects yet.</p>';return;}
-    subjects.slice().sort(function(a,b){return (a.order||99)-(b.order||99)}).forEach(function(s){
-      var el=document.createElement("div");el.className="sj";
-      el.innerHTML='<h3>'+esc(s.subject)+'</h3><div class="tp">'+esc(s.topic||"")+'</div>'+
-        (s.focus?'<div class="tp" style="color:var(--ink-3);font-size:12.5px">Assessed: '+esc(s.focus)+'</div>':'')+
-        '<div class="nx2">'+(s.next?'<b>'+esc(s.next)+'</b> · '+esc(s.when||""):'No Term 4 assessment')+'</div>';
-      h.appendChild(el);
-    });
+    var h=$("#subj");h.innerHTML="";h.className="";
+    var today=todayISO(),start=mondayOf(today),end=PLAN_END;
+    TERMS.forEach(function(t){if(t.k==="T4")end=t.end;});
+    var list=(items||[]).filter(function(i){return isAssess(i)&&!i.done&&i.due&&i.due>=start}).sort(function(a,b){return a.due<b.due?-1:a.due>b.due?1:0});
+    if(!list.length&&!subjects.length){h.innerHTML='<p class="empty-note">Nothing scheduled yet.</p>';return;}
+    for(var ws=start;ws<=end;ws=addDays(ws,7)){
+      var we=addDays(ws,6),wl=weekLabel(ws);
+      var wk=list.filter(function(i){return i.due>=ws&&i.due<=we});
+      var sec=document.createElement("section");sec.className="aw"+(today>=ws&&today<=we?" aw-now":"");
+      sec.innerHTML='<div class="aw-h"><b>'+esc(wl.lab)+'</b><span>'+longD(ws)+' \u2013 '+longD(we)+'</span></div>';
+      if(!wk.length){sec.insertAdjacentHTML("beforeend",'<div class="aw-none">No assessments this week</div>');}
+      else{
+        var grid=document.createElement("div");grid.className="subj";
+        wk.forEach(function(i){
+          var sn=subjName(i.subject),s=subjects.filter(function(x){return x.subject===sn})[0]||{};
+          var weekOf=/\(week of\)/i.test(i.title),title=i.title.replace(/\s*\(week of\)/i,"");
+          var when=(weekOf?(wd(i.due)===0?"Week of ":"By "):"")+longD(i.due);
+          var el=document.createElement("div");el.className="sj";
+          el.innerHTML='<h3>'+esc(sn)+'</h3><div class="ak">'+esc(aKind(i.title))+' \u00b7 '+esc(when)+'</div>'+
+            '<div class="tp">'+linkHtml(i.link,esc(title))+'</div>'+
+            (s.topic?'<div class="tp" style="color:var(--ink-3);font-size:12.5px">Class is on: '+esc(s.topic)+'</div>':'')+
+            (s.focus?'<div class="tp" style="color:var(--ink-3);font-size:12.5px">Assessed: '+esc(s.focus)+'</div>':'');
+          grid.appendChild(el);
+        });
+        sec.appendChild(grid);
+      }
+      h.appendChild(sec);
+    }
+    var quiet=subjects.filter(function(s){return !list.some(function(i){return subjName(i.subject)===s.subject})});
+    if(quiet.length){
+      var q=document.createElement("section");q.className="aw";
+      q.innerHTML='<div class="aw-h"><b>No more Term 4 assessments</b></div><div class="aw-none">'+quiet.map(function(s){return '<b>'+esc(s.subject)+'</b> \u2014 '+esc(s.next||"")}).join("<br>")+'</div>';
+      h.appendChild(q);
+    }
   }
 
   /* ---------- views ---------- */
